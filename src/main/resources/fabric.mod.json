@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "hellking",
+  "version": "${version}",
+  "name": "Hell King Scythe",
+  "description": "A hellish scythe that transforms you into the Hell King: flight, flame beam and fireballs.",
+  "authors": ["You"],
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["com.hellking.HellKingMod"],
+    "client": ["com.hellking.client.HellKingClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.0",
+    "minecraft": "~1.21.1",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
