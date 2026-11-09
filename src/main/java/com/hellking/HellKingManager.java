@@ -189,18 +189,8 @@ public class HellKingManager {
                     restoreAbilities(p);
                     sync(p, d);
                 } else {
-                    w.spawnParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 0.2, p.getZ(), 5, 0.4, 0.1, 0.4, 0.02);
-                    w.spawnParticles(ParticleTypes.LARGE_SMOKE, p.getX(), p.getY() + 0.1, p.getZ(), 2, 0.4, 0.1, 0.4, 0.01);
                     if (p.age % 14 == 0) w.playSound(null, p.getBlockPos(), ModSounds.FLY, SoundCategory.PLAYERS, 0.7f, 1.0f);
                 }
-            }
-
-            // aura (kept low, around the legs/body, away from the camera)
-            if (p.age % 3 == 0) {
-                double a = p.getRandom().nextDouble() * Math.PI * 2;
-                double r = 0.7 + p.getRandom().nextDouble() * 0.5;
-                w.spawnParticles(ParticleTypes.FLAME, p.getX() + Math.cos(a) * r, p.getY() + 0.1 + p.getRandom().nextDouble() * 1.0, p.getZ() + Math.sin(a) * r, 1, 0.05, 0.1, 0.05, 0.01);
-                w.spawnParticles(RED_DUST, p.getX() + Math.cos(a) * r, p.getY() + 0.3 + p.getRandom().nextDouble() * 1.0, p.getZ() + Math.sin(a) * r, 1, 0.1, 0.1, 0.1, 0.0);
             }
 
             if (d.beam) tickBeam(p, d, w);

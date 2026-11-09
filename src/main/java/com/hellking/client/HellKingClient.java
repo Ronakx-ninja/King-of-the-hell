@@ -94,36 +94,5 @@ public class HellKingClient implements ClientModInitializer {
             if (e == null || clientTicks - en.getValue()[2] > 70) it.remove();
         }
 
-        // extra client-side flame aura (never around the camera of the local player in first person)
-        boolean firstPerson = mc.options.getPerspective().isFirstPerson();
-        for (var en : STATES.entrySet()) {
-            if (en.getValue()[0] != 2) continue;
-            Entity e = mc.world.getEntityById(en.getKey());
-            if (e == null) continue;
-            if (e == mc.player && firstPerson) continue;
-            var r = mc.world.random;
-            double yaw = Math.toRadians(e.getYaw());
-            double fx = -Math.sin(yaw), fz = Math.cos(yaw);       // forward
-            double rx = -fz, rz = fx;                              // right
-            if (clientTicks % 2 == 0) {
-                mc.world.addParticle(ParticleTypes.FLAME,
-                        e.getX() + (r.nextDouble() - 0.5) * 1.2, e.getY() + r.nextDouble() * 2.0, e.getZ() + (r.nextDouble() - 0.5) * 1.2,
-                        0, 0.04, 0);
-                mc.world.addParticle(RED,
-                        e.getX() + (r.nextDouble() - 0.5) * 1.6, e.getY() + r.nextDouble() * 2.2, e.getZ() + (r.nextDouble() - 0.5) * 1.6,
-                        0, 0.03, 0);
-                // flames licking up the scythe blade (right hand, above the head)
-                double bh = 1.6 + r.nextDouble() * 1.4;
-                mc.world.addParticle(ParticleTypes.FLAME,
-                        e.getX() + rx * 0.6 + fx * 0.3 + (r.nextDouble() - 0.5) * 0.3, e.getY() + bh, e.getZ() + rz * 0.6 + fz * 0.3 + (r.nextDouble() - 0.5) * 0.3,
-                        0, 0.03, 0);
-            }
-            if (clientTicks % 3 == 0) {
-                // embers falling off the cape
-                double bx = e.getX() - fx * 0.5, bz = e.getZ() - fz * 0.5;
-                mc.world.addParticle(ParticleTypes.SMALL_FLAME, bx + (r.nextDouble() - 0.5), e.getY() + r.nextDouble() * 1.6, bz + (r.nextDouble() - 0.5), 0, 0.01, 0);
-                mc.world.addParticle(ParticleTypes.LARGE_SMOKE, bx, e.getY() + 1.8, bz, 0, 0.02, 0);
-            }
-        }
     }
 }
