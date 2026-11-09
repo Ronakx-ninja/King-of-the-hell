@@ -14,5 +14,5 @@ Minecraft 1.21.1 + Fabric Loader 0.16+ + Fabric API (1.21.1) -> jar ko `mods` fo
 ## Use
 - Recipe: `NNS / _B_ / _B_` (N = Netherite Ingot, S = Nether Star, B = Blaze Rod). Creative > Combat tab mein bhi hai.
 - Scythe haath mein pakdo, **V** dabao -> Hell King transformation (2 sec charge).
-- **F** = devil flight toggle, **G** (hold) = flame beam, **R** = fireball, **V** = wapas normal.
+- **Space double-tap** = superman flight, **G** (hold) = flame beam, **R** = fireball, **V** = wapas normal.
 - Keys Options > Controls > "Hell King Scythe" mein badal sakte ho.

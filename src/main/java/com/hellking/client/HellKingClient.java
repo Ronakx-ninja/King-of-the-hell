@@ -24,7 +24,7 @@ import java.util.Map;
 
 public class HellKingClient implements ClientModInitializer {
     private static final String CAT = "key.categories.hellking";
-    private static KeyBinding KEY_TRANSFORM, KEY_FLY, KEY_BEAM, KEY_FIREBALL;
+    private static KeyBinding KEY_TRANSFORM, KEY_BEAM, KEY_FIREBALL;
     private static boolean beamHeld = false;
 
     /** entityId -> {state, flying, lastUpdateTick} */
@@ -46,7 +46,6 @@ public class HellKingClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         KEY_TRANSFORM = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.hellking.transform", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, CAT));
-        KEY_FLY = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.hellking.fly", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F, CAT));
         KEY_BEAM = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.hellking.beam", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, CAT));
         KEY_FIREBALL = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.hellking.fireball", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, CAT));
 
@@ -78,12 +77,16 @@ public class HellKingClient implements ClientModInitializer {
         }
 
         while (KEY_TRANSFORM.wasPressed()) send(0);
-        while (KEY_FLY.wasPressed()) send(1);
         while (KEY_FIREBALL.wasPressed()) send(4);
         boolean g = KEY_BEAM.isPressed() && mc.currentScreen == null;
         if (g != beamHeld) {
             beamHeld = g;
             send(g ? 2 : 3);
+        }
+
+        // superman flight: while flying and holding W you climb / dive where you look
+        if (stateOf(mc.player) == 2 && mc.player.getAbilities().flying && mc.options.forwardKey.isPressed()) {
+            mc.player.addVelocity(0, mc.player.getRotationVec(1.0f).y * 0.2, 0);
         }
 
         // expire stale entries (player left / went out of range)

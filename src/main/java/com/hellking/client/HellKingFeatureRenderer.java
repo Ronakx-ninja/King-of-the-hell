@@ -32,7 +32,7 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
 
 
     private final PlayerEntityModel<AbstractClientPlayerEntity> armorModel;
-    private final ModelPart horns, shoulderL, shoulderR, cape, capeUp, capeLow;
+    private final ModelPart horns, shoulderL, shoulderR, cape, capeUp, capeMid, capeLow;
 
     public HellKingFeatureRenderer(FeatureRendererContext<AbstractClientPlayerEntity, PlayerEntityModel<AbstractClientPlayerEntity>> ctx, EntityModelLoader loader) {
         super(ctx);
@@ -43,7 +43,8 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
         this.shoulderR = gear.getChild("shoulder_r");
         this.cape = gear.getChild("cape");
         this.capeUp = cape.getChild("up");
-        this.capeLow = capeUp.getChild("low");
+        this.capeMid = capeUp.getChild("mid");
+        this.capeLow = capeMid.getChild("low");
     }
 
     // ------------------------------------------------------------------ model data
@@ -64,25 +65,28 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
         shoulder(root, "shoulder_r", -1f);
         shoulder(root, "shoulder_l", 1f);
 
-        // ---- long black cloak with a jagged glowing hem (attached to body); the shape comes from the texture's transparency
+        // ---- ragged cloak (attached to body); shape (tatters, holes, flare) comes from the texture's transparency
         ModelPartData cape = root.addChild("cape", ModelPartBuilder.create(), ModelTransform.NONE);
         ModelPartData up = cape.addChild("up",
-                ModelPartBuilder.create().uv(0, 0).cuboid(-8f, 0f, 0f, 16f, 12f, 1f),
-                ModelTransform.of(0f, 0.2f, 2.9f, 0.1f, 0f, 0f));
-        up.addChild("low",
-                ModelPartBuilder.create().uv(0, 16).cuboid(-11f, 0f, 0f, 22f, 14f, 1f),
-                ModelTransform.pivot(0f, 11.8f, 0f));
+                ModelPartBuilder.create().uv(0, 0).cuboid(-5f, 0f, 0f, 10f, 6f, 1f),
+                ModelTransform.of(0f, 0.2f, 2.9f, 0.08f, 0f, 0f));
+        ModelPartData mid = up.addChild("mid",
+                ModelPartBuilder.create().uv(0, 8).cuboid(-8f, 0f, 0f, 16f, 8f, 1f),
+                ModelTransform.pivot(0f, 5.8f, 0f));
+        mid.addChild("low",
+                ModelPartBuilder.create().uv(0, 18).cuboid(-12f, 0f, 0f, 24f, 14f, 1f),
+                ModelTransform.pivot(0f, 7.8f, 0f));
         return TexturedModelData.of(data, 64, 64);
     }
 
     private static void horn(ModelPartData parent, String name, float side) {
-        float[] w = {3.8f, 3.2f, 2.6f, 2.0f, 1.4f};
-        float[] h = {4.2f, 4.2f, 4.0f, 3.8f, 3.6f};
+        float[] w = {2.4f, 2.0f, 1.6f, 1.2f, 0.9f};
+        float[] h = {2.2f, 2.2f, 2.0f, 1.8f, 1.6f};
         float[] roll = {0.70f, -0.10f, -0.40f, -0.60f, -0.70f};
         ModelPartData cur = parent;
         for (int i = 0; i < 5; i++) {
-            float py = i == 0 ? -8.0f : -h[i - 1] + 0.5f;
-            float px = i == 0 ? side * 4.4f : 0f;
+            float py = i == 0 ? -7.6f : -h[i - 1] + 0.4f;
+            float px = i == 0 ? side * 3.6f : 0f;
             cur = cur.addChild(name + i,
                     ModelPartBuilder.create().uv(46, 0).cuboid(-w[i] / 2f, -h[i], -w[i] / 2f, w[i], h[i], w[i]),
                     ModelTransform.of(px, py, 0f, 0f, 0f, side * roll[i]));
@@ -92,7 +96,7 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
     private static void shoulder(ModelPartData root, String name, float side) {
         ModelPartData sh = root.addChild(name, ModelPartBuilder.create(), ModelTransform.NONE);
         sh.addChild("pad", ModelPartBuilder.create().uv(32, 48).cuboid(side > 0 ? -2.4f : -5.6f, -3.6f, -3.4f, 8f, 2f, 6.8f), ModelTransform.NONE);
-        float[] h = {5f, 8f, 5f};
+        float[] h = {3f, 4.5f, 3f};
         for (int i = 0; i < 3; i++) {
             sh.addChild("sp" + i, ModelPartBuilder.create().uv(46, 0).cuboid(-0.8f, -h[i], -0.8f, 1.6f, h[i], 1.6f),
                     ModelTransform.of(side * 2.2f, -3.4f, -2.0f + i * 2.0f, (i - 1) * 0.12f, 0f, side * 0.55f));
@@ -109,6 +113,14 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
 
         PlayerEntityModel<AbstractClientPlayerEntity> ctx = getContextModel();
         ctx.copyStateTo(armorModel);
+        // copy the live pose (walking, arm swing, head turn, sneaking) onto the armour model
+        armorModel.head.copyTransform(ctx.head);
+        armorModel.body.copyTransform(ctx.body);
+        armorModel.rightArm.copyTransform(ctx.rightArm);
+        armorModel.leftArm.copyTransform(ctx.leftArm);
+        armorModel.rightLeg.copyTransform(ctx.rightLeg);
+        armorModel.leftLeg.copyTransform(ctx.leftLeg);
+        armorModel.sneaking = ctx.sneaking;
         armorModel.setVisible(true);
         armorModel.hat.visible = false;
         armorModel.jacket.visible = false;
@@ -134,9 +146,10 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
         // ---- animate cape
         float t = p.age + tickDelta;
         boolean flying = HellKingClient.isFlying(p);
-        float lean = 0.12f + Math.min(limbDistance, 1f) * 0.55f + (flying ? 0.55f : 0f);
+        float lean = flying ? 0.05f : 0.12f + Math.min(limbDistance, 1f) * 0.55f;
         capeUp.pitch = 0.10f + lean * 0.55f + (float) Math.sin(t * 0.12f) * 0.03f;
-        capeLow.pitch = lean * 0.75f + (float) Math.sin(t * 0.14f + 1.0f) * 0.07f + (float) Math.sin(t * 0.33f) * 0.025f;
+        capeMid.pitch = lean * 0.35f + (float) Math.sin(t * 0.13f + 0.5f) * 0.04f;
+        capeLow.pitch = lean * 0.5f + (float) Math.sin(t * 0.14f + 1.0f) * 0.07f + (float) Math.sin(t * 0.33f) * 0.025f;
 
         drawPart(m, ctx.head, horns, vcp, light, full, ov);
         drawPart(m, ctx.rightArm, shoulderR, vcp, light, full, ov);

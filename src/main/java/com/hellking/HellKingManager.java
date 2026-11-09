@@ -183,15 +183,18 @@ public class HellKingManager {
             p.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 40, 1, true, false, false));
             p.fallDistance = 0;
 
-            if (d.flying) {
-                if (!p.getAbilities().flying && p.isOnGround()) {
-                    d.flying = false;
-                    restoreAbilities(p);
-                    sync(p, d);
-                } else {
-                    if (p.age % 14 == 0) w.playSound(null, p.getBlockPos(), ModSounds.FLY, SoundCategory.PLAYERS, 0.7f, 1.0f);
-                }
+            // double-tap space flight (vanilla creative-style) is enabled for the whole transformation
+            if (!p.getAbilities().allowFlying) {
+                p.getAbilities().allowFlying = true;
+                p.getAbilities().setFlySpeed(0.1f);
+                p.sendAbilitiesUpdate();
             }
+            boolean fl = p.getAbilities().flying;
+            if (fl != d.flying) {
+                d.flying = fl;
+                sync(p, d);
+            }
+            if (fl && p.age % 14 == 0) w.playSound(null, p.getBlockPos(), ModSounds.FLY, SoundCategory.PLAYERS, 0.7f, 1.0f);
 
             if (d.beam) tickBeam(p, d, w);
             else d.beamTicks = 0;
@@ -213,6 +216,9 @@ public class HellKingManager {
 
         if (--d.transformTimer <= 0) {
             d.state = 2;
+            p.getAbilities().allowFlying = true;
+            p.getAbilities().setFlySpeed(0.1f);
+            p.sendAbilitiesUpdate();
             w.spawnParticles(ParticleTypes.EXPLOSION_EMITTER, p.getX(), p.getY() + 1, p.getZ(), 1, 0, 0, 0, 0);
             w.spawnParticles(ParticleTypes.FLAME, p.getX(), p.getY() + 1, p.getZ(), 120, 0.4, 0.8, 0.4, 0.25);
             w.spawnParticles(ParticleTypes.LAVA, p.getX(), p.getY() + 1, p.getZ(), 30, 0.6, 0.8, 0.6, 0.0);
