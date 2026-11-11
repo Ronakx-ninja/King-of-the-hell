@@ -28,7 +28,9 @@ import net.minecraft.world.RaycastContext;
 import net.minecraft.world.World;
 import org.joml.Vector3f;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -45,7 +47,14 @@ public class HellKingManager {
         boolean beam = false;
         int fireballCooldown = 0;
         int beamTicks = 0;
+        int castTicks = 0;      // left arm held out while the fireball volley comes out
+        int volley = 0;         // fireballs still to launch
+        int volleyTimer = 0;
+        int lastFlags = -1;
+        Vec3d lastFirePos = null;
     }
+
+    private static final List<FireballEntity> BALLS = new ArrayList<>();
 
     private static final Map<UUID, Data> DATA = new HashMap<>();
     private static final DustParticleEffect RED_DUST = new DustParticleEffect(new Vector3f(1.0f, 0.12f, 0.05f), 2.2f);
@@ -99,7 +108,6 @@ public class HellKingManager {
                     p.setVelocity(p.getVelocity().add(0, 0.6, 0));
                     p.velocityModified = true;
                     p.sendAbilitiesUpdate();
-                    p.getWorld().playSound(null, p.getBlockPos(), ModSounds.FLY, SoundCategory.PLAYERS, 1.5f, 1.0f);
                 } else {
                     d.flying = false;
                     restoreAbilities(p);
@@ -110,8 +118,11 @@ public class HellKingManager {
             case 3 -> d.beam = false;
             case 4 -> {
                 if (d.state != 2 || d.fireballCooldown > 0) return;
-                d.fireballCooldown = 12;
-                fireball(p);
+                d.fireballCooldown = 45;
+                d.volley = 4;
+                d.volleyTimer = 6;
+                d.castTicks = 20;
+                p.getWorld().playSound(null, p.getBlockPos(), ModSounds.FIREBALL, SoundCategory.PLAYERS, 1.2f, 0.7f);
             }
             default -> {}
         }
@@ -135,20 +146,33 @@ public class HellKingManager {
         p.sendAbilitiesUpdate();
     }
 
+    /** Launches one hellfire ball out of the left (empty) hand. */
     private static void fireball(ServerPlayerEntity p) {
         ServerWorld w = p.getServerWorld();
         Vec3d look = p.getRotationVec(1.0f);
-        Vec3d pos = p.getEyePos().add(look.multiply(1.2)).add(0, -0.35, 0);
-        FireballEntity ball = new FireballEntity(w, p, look.multiply(1.6), 2);
-        ball.setPosition(pos);
+        Vec3d right = look.crossProduct(new Vec3d(0, 1, 0));
+        right = right.lengthSquared() < 1.0E-4 ? new Vec3d(1, 0, 0) : right.normalize();
+        Vec3d hand = p.getEyePos().add(look.multiply(1.1)).add(right.multiply(-0.45)).add(0, -0.45, 0);
+        var rnd = p.getRandom();
+        Vec3d dir = look.add((rnd.nextDouble() - 0.5) * 0.12, (rnd.nextDouble() - 0.5) * 0.12, (rnd.nextDouble() - 0.5) * 0.12).normalize();
+        FireballEntity ball = new FireballEntity(w, p, dir.multiply(1.8), 4);
+        ball.setItem(new ItemStack(ModItems.HELL_FIREBALL));
+        ball.setPosition(hand);
+        ball.setVelocity(dir.multiply(1.8));
         w.spawnEntity(ball);
-        w.playSound(null, p.getBlockPos(), ModSounds.FIREBALL, SoundCategory.PLAYERS, 1.6f, 0.9f + p.getRandom().nextFloat() * 0.2f);
-        w.spawnParticles(ParticleTypes.FLAME, pos.x, pos.y, pos.z, 18, 0.3, 0.3, 0.3, 0.05);
+        BALLS.add(ball);
+        w.playSound(null, p.getBlockPos(), ModSounds.FIREBALL, SoundCategory.PLAYERS, 1.6f, 0.8f + rnd.nextFloat() * 0.3f);
+        w.spawnParticles(ParticleTypes.FLAME, hand.x, hand.y, hand.z, 10, 0.15, 0.15, 0.15, 0.05);
     }
 
     // ------------------------------------------------------------ sync
+    private static int flagsOf(Data d) {
+        return (d.flying ? 1 : 0) | (d.castTicks > 0 ? 2 : 0) | (d.beam && d.state == 2 ? 4 : 0);
+    }
+
     private static void sync(ServerPlayerEntity p, Data d) {
-        SyncPayload payload = new SyncPayload(p.getId(), d.state, d.flying ? 1 : 0);
+        d.lastFlags = flagsOf(d);
+        SyncPayload payload = new SyncPayload(p.getId(), d.state, flagsOf(d));
         MinecraftServer server = p.getServer();
         if (server == null) return;
         for (ServerPlayerEntity other : server.getPlayerManager().getPlayerList()) {
@@ -190,14 +214,95 @@ public class HellKingManager {
                 p.sendAbilitiesUpdate();
             }
             boolean fl = p.getAbilities().flying;
-            if (fl != d.flying) {
-                d.flying = fl;
-                sync(p, d);
+            if (fl != d.flying) d.flying = fl;
+
+            // fireball volley: 4 balls, one every 3 ticks, out of the left hand
+            if (d.volley > 0 && --d.volleyTimer <= 0) {
+                fireball(p);
+                d.volley--;
+                d.volleyTimer = 3;
             }
-            if (fl && p.age % 14 == 0) w.playSound(null, p.getBlockPos(), ModSounds.FLY, SoundCategory.PLAYERS, 0.7f, 1.0f);
+            if (d.castTicks > 0) d.castTicks--;
 
             if (d.beam) tickBeam(p, d, w);
             else d.beamTicks = 0;
+
+            boolean griefing = w.getGameRules().getBoolean(net.minecraft.world.GameRules.DO_MOB_GRIEFING);
+            if (griefing) {
+                if (d.flying) flightSmash(p, w);
+                else walkingFire(p, d, w);
+            }
+
+            if (flagsOf(d) != d.lastFlags || p.age % 20 == 0) sync(p, d);
+        }
+
+        // flame trail behind every hellfire ball
+        for (int i = BALLS.size() - 1; i >= 0; i--) {
+            FireballEntity b = BALLS.get(i);
+            if (b.isRemoved() || !(b.getWorld() instanceof ServerWorld bw)) {
+                BALLS.remove(i);
+                continue;
+            }
+            bw.spawnParticles(ParticleTypes.FLAME, b.getX(), b.getY(), b.getZ(), 4, 0.25, 0.25, 0.25, 0.02);
+            bw.spawnParticles(ParticleTypes.SMALL_FLAME, b.getX(), b.getY(), b.getZ(), 3, 0.4, 0.4, 0.4, 0.03);
+            if (b.age % 3 == 0) bw.spawnParticles(ParticleTypes.LAVA, b.getX(), b.getY(), b.getZ(), 1, 0.3, 0.3, 0.3, 0.0);
+        }
+    }
+
+    /** True if this block may be wiped out by the Hell King. */
+    private static boolean smashable(ServerWorld w, ServerPlayerEntity p, BlockPos bp, float maxHardness) {
+        BlockState st = w.getBlockState(bp);
+        if (st.isAir() || st.isOf(Blocks.BEDROCK)) return false;
+        float h = st.getHardness(w, bp);
+        if (h < 0 || h > maxHardness) return false;
+        return w.canPlayerModifyAt(p, bp);
+    }
+
+    /** While flying: everything in the way (trees, leaves, rock...) is blasted away so the flight never stops. */
+    private static void flightSmash(ServerPlayerEntity p, ServerWorld w) {
+        Vec3d look = p.getRotationVec(1.0f);
+        Vec3d c = p.getPos().add(0, 0.9, 0).add(look.multiply(1.6));
+        BlockPos center = BlockPos.ofFloored(c);
+        int r = 3;
+        int broken = 0;
+        for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++) {
+            if (dx * dx + dy * dy + dz * dz > r * r) continue;
+            BlockPos bp = center.add(dx, dy, dz);
+            if (!smashable(w, p, bp, 30f)) continue;
+            w.setBlockState(bp, Blocks.AIR.getDefaultState(), 18);
+            broken++;
+        }
+        if (broken > 0 && p.age % 3 == 0) {
+            w.spawnParticles(ParticleTypes.EXPLOSION, c.x, c.y, c.z, 1, 0.8, 0.8, 0.8, 0.0);
+            w.spawnParticles(ParticleTypes.SMOKE, c.x, c.y, c.z, 6, 0.8, 0.8, 0.8, 0.02);
+        }
+    }
+
+    /** On the ground: fire follows the Hell King's footsteps and nearby flammable things catch fire. */
+    private static void walkingFire(ServerPlayerEntity p, Data d, ServerWorld w) {
+        if (p.age % 4 != 0) return;
+        Vec3d pos = p.getPos();
+        if (d.lastFirePos == null || d.lastFirePos.squaredDistanceTo(pos) > 0.6) {
+            d.lastFirePos = pos;
+            BlockPos feet = p.getBlockPos();
+            if (p.isOnGround() && w.getBlockState(feet).isAir() && AbstractFireBlock.canPlaceAt(w, feet, Direction.UP)
+                    && w.canPlayerModifyAt(p, feet)) {
+                w.setBlockState(feet, AbstractFireBlock.getState(w, feet));
+            }
+        }
+        // things that are close and flammable (wood, leaves, grass, wool...) catch fire
+        var rnd = p.getRandom();
+        for (int i = 0; i < 14; i++) {
+            BlockPos bp = p.getBlockPos().add(rnd.nextInt(7) - 3, rnd.nextInt(5) - 1, rnd.nextInt(7) - 3);
+            BlockState st = w.getBlockState(bp);
+            if (!st.isBurnable()) continue;
+            for (Direction dir : Direction.values()) {
+                BlockPos n = bp.offset(dir);
+                if (w.getBlockState(n).isAir() && AbstractFireBlock.canPlaceAt(w, n, dir.getOpposite()) && w.canPlayerModifyAt(p, n)) {
+                    w.setBlockState(n, AbstractFireBlock.getState(w, n));
+                    break;
+                }
+            }
         }
     }
 
@@ -277,16 +382,15 @@ public class HellKingManager {
             w.spawnParticles(ParticleTypes.FLAME, h.x, h.y, h.z, 12, 0.8, 0.8, 0.8, 0.08);
             w.spawnParticles(ParticleTypes.EXPLOSION, h.x, h.y, h.z, 1, 0.6, 0.6, 0.6, 0.0);
 
-            if (d.beamTicks % 2 == 0 && w.getGameRules().getBoolean(net.minecraft.world.GameRules.DO_MOB_GRIEFING)) {
+            if (w.getGameRules().getBoolean(net.minecraft.world.GameRules.DO_MOB_GRIEFING)) {
                 BlockPos center = BlockPos.ofFloored(h.x + look.x * 0.5, h.y + look.y * 0.5, h.z + look.z * 0.5);
-                int r = 2;
+                int r = 4;
                 for (int dx = -r; dx <= r; dx++) for (int dy = -r; dy <= r; dy++) for (int dz = -r; dz <= r; dz++) {
                     if (dx * dx + dy * dy + dz * dz > r * r + 1) continue;
                     BlockPos bp = center.add(dx, dy, dz);
                     BlockState st = w.getBlockState(bp);
-                    if (st.isAir() || st.getHardness(w, bp) < 0 || st.isOf(Blocks.BEDROCK)) continue;
-                    if (!w.canPlayerModifyAt(p, bp)) continue;
-                    w.setBlockState(bp, Blocks.AIR.getDefaultState(), 3);
+                    if (!smashable(w, p, bp, 60f)) continue;
+                    w.setBlockState(bp, Blocks.AIR.getDefaultState(), 18);
                     if (p.getRandom().nextInt(6) == 0) {
                         w.spawnParticles(ParticleTypes.LAVA, bp.getX() + 0.5, bp.getY() + 0.5, bp.getZ() + 0.5, 1, 0.3, 0.3, 0.3, 0.0);
                     }

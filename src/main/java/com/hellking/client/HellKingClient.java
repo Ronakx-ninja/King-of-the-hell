@@ -38,9 +38,25 @@ public class HellKingClient implements ClientModInitializer {
         return s == null ? 0 : s[0];
     }
 
-    public static boolean isFlying(Entity e) {
+    private static int flagsOf(Entity e) {
         int[] s = STATES.get(e.getId());
-        return s != null && s[1] == 1;
+        return s == null ? 0 : s[1];
+    }
+
+    public static boolean isFlying(Entity e) {
+        // the local player reads its own flight state directly (no network delay)
+        if (e instanceof net.minecraft.entity.player.PlayerEntity pe && e == MinecraftClient.getInstance().player) {
+            return stateOf(e) == 2 && pe.getAbilities().flying;
+        }
+        return (flagsOf(e) & 1) != 0;
+    }
+
+    public static boolean isCasting(Entity e) {
+        return (flagsOf(e) & 2) != 0;
+    }
+
+    public static boolean isBeaming(Entity e) {
+        return (flagsOf(e) & 4) != 0;
     }
 
     @Override
@@ -59,7 +75,7 @@ public class HellKingClient implements ClientModInitializer {
         });
 
         ClientPlayNetworking.registerGlobalReceiver(SyncPayload.ID, (payload, context) ->
-                STATES.put(payload.entityId(), new int[]{payload.state(), payload.flying(), clientTicks}));
+                STATES.put(payload.entityId(), new int[]{payload.state(), payload.flags(), clientTicks}));
 
         ClientTickEvents.END_CLIENT_TICK.register(this::tick);
     }

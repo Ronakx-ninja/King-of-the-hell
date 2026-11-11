@@ -96,11 +96,6 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
     private static void shoulder(ModelPartData root, String name, float side) {
         ModelPartData sh = root.addChild(name, ModelPartBuilder.create(), ModelTransform.NONE);
         sh.addChild("pad", ModelPartBuilder.create().uv(32, 48).cuboid(side > 0 ? -2.4f : -5.6f, -3.6f, -3.4f, 8f, 2f, 6.8f), ModelTransform.NONE);
-        float[] h = {3f, 4.5f, 3f};
-        for (int i = 0; i < 3; i++) {
-            sh.addChild("sp" + i, ModelPartBuilder.create().uv(46, 0).cuboid(-0.8f, -h[i], -0.8f, 1.6f, h[i], 1.6f),
-                    ModelTransform.of(side * 2.2f, -3.4f, -2.0f + i * 2.0f, (i - 1) * 0.12f, 0f, side * 0.55f));
-        }
     }
 
     // ------------------------------------------------------------------ rendering

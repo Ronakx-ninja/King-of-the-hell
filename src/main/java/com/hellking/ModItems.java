@@ -20,6 +20,10 @@ public class ModItems {
                             .rarity(Rarity.EPIC)
                             .maxCount(1)));
 
+    /** Only used as the picture of the hellfire ball projectile. */
+    public static final Item HELL_FIREBALL = Registry.register(Registries.ITEM,
+            Identifier.of(HellKingMod.MOD_ID, "hell_fireball"), new Item(new Item.Settings()));
+
     public static void init() {
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(HELL_SCYTHE));
     }

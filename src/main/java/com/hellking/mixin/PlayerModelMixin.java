@@ -20,7 +20,21 @@ public abstract class PlayerModelMixin<T extends LivingEntity> extends BipedEnti
     @Inject(method = "setAngles(Lnet/minecraft/entity/LivingEntity;FFFFF)V", at = @At("TAIL"))
     private void hellking$supermanPose(T entity, float limbAngle, float limbDistance, float animationProgress,
                                        float headYaw, float headPitch, CallbackInfo ci) {
-        if (HellKingClient.stateOf(entity) != 2 || !HellKingClient.isFlying(entity)) return;
+        if (HellKingClient.stateOf(entity) != 2) return;
+        float aim = -1.5707f + headPitch * 0.017453292f;      // arm points where the player looks
+        if (!HellKingClient.isFlying(entity)) {
+            if (HellKingClient.isCasting(entity)) {           // empty (left) hand thrust forward to throw hellfire
+                this.leftArm.pitch = aim;
+                this.leftArm.yaw = 0.0f;
+                this.leftArm.roll = 0.0f;
+            }
+            if (HellKingClient.isBeaming(entity)) {           // scythe (right) hand pushed forward while the beam fires
+                this.rightArm.pitch = aim;
+                this.rightArm.yaw = 0.0f;
+                this.rightArm.roll = 0.0f;
+            }
+            return;
+        }
         this.head.pitch = -1.45f;
         this.head.yaw = 0f;
         this.body.pitch = 0f;
