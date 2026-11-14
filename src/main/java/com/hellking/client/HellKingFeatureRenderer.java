@@ -104,7 +104,7 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
                        float limbAngle, float limbDistance, float tickDelta, float animationProgress,
                        float headYaw, float headPitch) {
         int state = HellKingClient.stateOf(p);
-        if (state == 0 || p.isInvisible()) return;
+        if (state == 0 || p.isInvisible() || HellKingClient.formOf(p) != 0) return;
 
         PlayerEntityModel<AbstractClientPlayerEntity> ctx = getContextModel();
         ctx.copyStateTo(armorModel);

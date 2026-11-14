@@ -24,7 +24,23 @@ public class ModItems {
     public static final Item HELL_FIREBALL = Registry.register(Registries.ITEM,
             Identifier.of(HellKingMod.MOD_ID, "hell_fireball"), new Item(new Item.Settings()));
 
+    public static final Item HEAVEN_TRIDENT = Registry.register(Registries.ITEM,
+            Identifier.of(HellKingMod.MOD_ID, "heaven_trident"),
+            new SwordItem(ToolMaterials.NETHERITE,
+                    new Item.Settings()
+                            .attributeModifiers(SwordItem.createAttributeModifiers(ToolMaterials.NETHERITE, 8, -2.6f))
+                            .fireproof()
+                            .rarity(Rarity.EPIC)
+                            .maxCount(1)));
+
+    /** Only used as the picture of the water ball projectile. */
+    public static final Item WATER_BALL = Registry.register(Registries.ITEM,
+            Identifier.of(HellKingMod.MOD_ID, "water_ball"), new Item(new Item.Settings()));
+
     public static void init() {
-        ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> entries.add(HELL_SCYTHE));
+        ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> {
+            entries.add(HELL_SCYTHE);
+            entries.add(HEAVEN_TRIDENT);
+        });
     }
 }

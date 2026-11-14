@@ -3,6 +3,7 @@ package com.hellking;
 import com.hellking.net.ActionPayload;
 import com.hellking.net.SyncPayload;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
@@ -22,6 +23,7 @@ public class HellKingMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(ActionPayload.ID,
                 (payload, context) -> HellKingManager.handleAction(context.player(), payload.action()));
 
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> !HellKingManager.isImmune(entity, source));
         ServerTickEvents.END_SERVER_TICK.register(HellKingManager::tick);
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> HellKingManager.reset(handler.player));
     }

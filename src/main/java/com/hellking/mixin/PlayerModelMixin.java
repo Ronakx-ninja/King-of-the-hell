@@ -33,6 +33,7 @@ public abstract class PlayerModelMixin<T extends LivingEntity> extends BipedEnti
                 this.rightArm.yaw = 0.0f;
                 this.rightArm.roll = 0.0f;
             }
+            hellking$syncOverlays();
             return;
         }
         this.head.pitch = -1.45f;
@@ -48,5 +49,19 @@ public abstract class PlayerModelMixin<T extends LivingEntity> extends BipedEnti
         this.leftLeg.pitch = 0.05f;
         this.rightLeg.yaw = 0f;
         this.leftLeg.yaw = 0f;
+        this.rightLeg.roll = 0.04f;
+        this.leftLeg.roll = -0.04f;
+        hellking$syncOverlays();
+    }
+
+    /** The second skin layer (pants, sleeves, jacket, hat) was copied before our pose, so it still "walked in the air". */
+    private void hellking$syncOverlays() {
+        PlayerEntityModel<?> pm = (PlayerEntityModel<?>) (Object) this;
+        pm.leftPants.copyTransform(pm.leftLeg);
+        pm.rightPants.copyTransform(pm.rightLeg);
+        pm.leftSleeve.copyTransform(pm.leftArm);
+        pm.rightSleeve.copyTransform(pm.rightArm);
+        pm.jacket.copyTransform(pm.body);
+        pm.hat.copyTransform(pm.head);
     }
 }

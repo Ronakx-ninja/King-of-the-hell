@@ -43,6 +43,15 @@ public class HellKingClient implements ClientModInitializer {
         return s == null ? 0 : s[1];
     }
 
+    /** 0 = Hell King, 1 = Heaven King */
+    public static int formOf(Entity e) {
+        return (flagsOf(e) & 8) != 0 ? 1 : 0;
+    }
+
+    public static boolean isKing(Entity e) {
+        return stateOf(e) == 2;
+    }
+
     public static boolean isFlying(Entity e) {
         // the local player reads its own flight state directly (no network delay)
         if (e instanceof net.minecraft.entity.player.PlayerEntity pe && e == MinecraftClient.getInstance().player) {
@@ -68,9 +77,13 @@ public class HellKingClient implements ClientModInitializer {
         EntityModelLayerRegistry.registerModelLayer(HellKingFeatureRenderer.ARMOR_LAYER, HellKingFeatureRenderer::createArmorLayer);
         EntityModelLayerRegistry.registerModelLayer(HellKingFeatureRenderer.GEAR_LAYER, HellKingFeatureRenderer::createGearLayer);
 
+        EntityModelLayerRegistry.registerModelLayer(HeavenKingFeatureRenderer.ARMOR_LAYER, HeavenKingFeatureRenderer::createArmorLayer);
+        EntityModelLayerRegistry.registerModelLayer(HeavenKingFeatureRenderer.GEAR_LAYER, HeavenKingFeatureRenderer::createGearLayer);
+
         LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, ctx) -> {
             if (renderer instanceof PlayerEntityRenderer pr) {
                 helper.register(new HellKingFeatureRenderer(pr, ctx.getModelLoader()));
+                helper.register(new HeavenKingFeatureRenderer(pr, ctx.getModelLoader()));
             }
         });
 
@@ -99,6 +112,9 @@ public class HellKingClient implements ClientModInitializer {
             beamHeld = g;
             send(g ? 2 : 3);
         }
+
+        // Hell King never burns on screen
+        if (stateOf(mc.player) == 2 && formOf(mc.player) == 0) mc.player.extinguish();
 
         // superman flight: while flying and holding W you climb / dive where you look
         if (stateOf(mc.player) == 2 && mc.player.getAbilities().flying && mc.options.forwardKey.isPressed()) {

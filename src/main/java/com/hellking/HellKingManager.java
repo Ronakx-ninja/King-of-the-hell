@@ -9,7 +9,10 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.projectile.FireballEntity;
+import net.minecraft.registry.tag.DamageTypeTags;
 import net.minecraft.item.ItemStack;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.DustParticleEffect;
@@ -41,7 +44,8 @@ public class HellKingManager {
     private static final double BEAM_RANGE = 28.0;
 
     private static class Data {
-        int state = 0;          // 0 normal, 1 transforming, 2 hell king
+        int form = 0;           // 0 = Hell King, 1 = Heaven King
+        int state = 0;          // 0 normal, 1 transforming, 2 transformed
         int transformTimer = 0;
         boolean flying = false;
         boolean beam = false;
@@ -65,6 +69,16 @@ public class HellKingManager {
     private static final DustColorTransitionParticleEffect GLOW =
             new DustColorTransitionParticleEffect(new Vector3f(1.0f, 0.5f, 0.1f), new Vector3f(0.6f, 0.0f, 0.0f), 3.2f);
 
+    /** Hell King takes no fire / lava / explosion (own fireballs) / fall damage while transformed. */
+    public static boolean isImmune(net.minecraft.entity.LivingEntity e, DamageSource src) {
+        if (!(e instanceof ServerPlayerEntity p)) return false;
+        Data d = DATA.get(p.getUuid());
+        if (d == null || d.state != 2 || d.form != 0) return false;
+        return src.isIn(DamageTypeTags.IS_FIRE) || src.isIn(DamageTypeTags.IS_EXPLOSION)
+                || src.isOf(DamageTypes.LAVA) || src.isOf(DamageTypes.IN_FIRE) || src.isOf(DamageTypes.ON_FIRE)
+                || src.isOf(DamageTypes.HOT_FLOOR) || src.isIn(DamageTypeTags.IS_FALL);
+    }
+
     private static Data data(ServerPlayerEntity p) {
         return DATA.computeIfAbsent(p.getUuid(), k -> new Data());
     }
@@ -74,9 +88,10 @@ public class HellKingManager {
         if (d != null) restoreAbilities(p);
     }
 
-    private static boolean hasScythe(ServerPlayerEntity p) {
-        for (ItemStack s : p.getInventory().main) if (s.isOf(ModItems.HELL_SCYTHE)) return true;
-        for (ItemStack s : p.getInventory().offHand) if (s.isOf(ModItems.HELL_SCYTHE)) return true;
+    private static boolean hasWeapon(ServerPlayerEntity p, Data d) {
+        net.minecraft.item.Item it = d.form == 1 ? ModItems.HEAVEN_TRIDENT : ModItems.HELL_SCYTHE;
+        for (ItemStack s : p.getInventory().main) if (s.isOf(it)) return true;
+        for (ItemStack s : p.getInventory().offHand) if (s.isOf(it)) return true;
         return false;
     }
 
@@ -86,13 +101,15 @@ public class HellKingManager {
         switch (action) {
             case 0 -> { // transform toggle
                 if (d.state == 0) {
-                    if (!p.isHolding(ModItems.HELL_SCYTHE)) {
-                        p.sendMessage(Text.literal("§cHell Scythe haath mein pakdo, phir transform karo!"), true);
+                    if (p.isHolding(ModItems.HELL_SCYTHE)) d.form = 0;
+                    else if (p.isHolding(ModItems.HEAVEN_TRIDENT)) d.form = 1;
+                    else {
+                        p.sendMessage(Text.literal("§cHell Scythe ya Heaven Trident haath mein pakdo, phir V dabao!"), true);
                         return;
                     }
                     d.state = 1;
                     d.transformTimer = TRANSFORM_TICKS;
-                    p.getWorld().playSound(null, p.getBlockPos(), ModSounds.TRANSFORM, SoundCategory.PLAYERS, 2.0f, 1.0f);
+                    p.getWorld().playSound(null, p.getBlockPos(), ModSounds.TRANSFORM, SoundCategory.PLAYERS, 2.0f, d.form == 1 ? 1.6f : 1.0f);
                     sync(p, d);
                 } else if (d.state == 2) {
                     detransform(p, d);
@@ -118,6 +135,12 @@ public class HellKingManager {
             case 3 -> d.beam = false;
             case 4 -> {
                 if (d.state != 2 || d.fireballCooldown > 0) return;
+                if (d.form == 1) {
+                    d.fireballCooldown = 60;
+                    d.castTicks = 14;
+                    HeavenKing.throwWaterBall(p);
+                    return;
+                }
                 d.fireballCooldown = 45;
                 d.volley = 4;
                 d.volleyTimer = 6;
@@ -167,7 +190,7 @@ public class HellKingManager {
 
     // ------------------------------------------------------------ sync
     private static int flagsOf(Data d) {
-        return (d.flying ? 1 : 0) | (d.castTicks > 0 ? 2 : 0) | (d.beam && d.state == 2 ? 4 : 0);
+        return (d.flying ? 1 : 0) | (d.castTicks > 0 ? 2 : 0) | (d.beam && d.state == 2 ? 4 : 0) | (d.form == 1 ? 8 : 0);
     }
 
     private static void sync(ServerPlayerEntity p, Data d) {
@@ -189,7 +212,7 @@ public class HellKingManager {
 
             if (d.fireballCooldown > 0) d.fireballCooldown--;
 
-            if (!p.isAlive() || !hasScythe(p)) {
+            if (!p.isAlive() || !hasWeapon(p, d)) {
                 detransform(p, d);
                 continue;
             }
@@ -201,10 +224,17 @@ public class HellKingManager {
                 continue;
             }
 
-            // ---- state 2: Hell King
-            p.addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, 40, 0, true, false, false));
-            p.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 40, 1, true, false, false));
-            p.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 40, 1, true, false, false));
+            // ---- state 2: transformed
+            if (d.form == 0) {
+                p.addStatusEffect(new StatusEffectInstance(StatusEffects.FIRE_RESISTANCE, 40, 0, true, false, false));
+                p.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 40, 1, true, false, false));
+                p.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 40, 1, true, false, false));
+                if (p.isOnFire()) p.extinguish();
+            } else {
+                p.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 40, 1, true, false, false));
+                p.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 40, 1, true, false, false));
+                p.addStatusEffect(new StatusEffectInstance(StatusEffects.WATER_BREATHING, 40, 0, true, false, false));
+            }
             p.fallDistance = 0;
 
             // double-tap space flight (vanilla creative-style) is enabled for the whole transformation
@@ -217,24 +247,28 @@ public class HellKingManager {
             if (fl != d.flying) d.flying = fl;
 
             // fireball volley: 4 balls, one every 3 ticks, out of the left hand
-            if (d.volley > 0 && --d.volleyTimer <= 0) {
+            if (d.form == 0 && d.volley > 0 && --d.volleyTimer <= 0) {
                 fireball(p);
                 d.volley--;
                 d.volleyTimer = 3;
             }
             if (d.castTicks > 0) d.castTicks--;
 
-            if (d.beam) tickBeam(p, d, w);
-            else d.beamTicks = 0;
+            if (d.beam) {
+                if (d.form == 1) { d.beamTicks++; HeavenKing.tickBeam(p, d.beamTicks, w); }
+                else tickBeam(p, d, w);
+            } else d.beamTicks = 0;
 
             boolean griefing = w.getGameRules().getBoolean(net.minecraft.world.GameRules.DO_MOB_GRIEFING);
-            if (griefing) {
+            if (griefing && d.form == 0) {
                 if (d.flying) flightSmash(p, w);
                 else walkingFire(p, d, w);
             }
 
             if (flagsOf(d) != d.lastFlags || p.age % 20 == 0) sync(p, d);
         }
+
+        HeavenKing.tickWaterBalls();
 
         // flame trail behind every hellfire ball
         for (int i = BALLS.size() - 1; i >= 0; i--) {
@@ -307,6 +341,18 @@ public class HellKingManager {
     }
 
     private static void tickTransforming(ServerPlayerEntity p, Data d, ServerWorld w) {
+        if (d.form == 1) {
+            HeavenKing.tickTransforming(p, TRANSFORM_TICKS - d.transformTimer, w);
+            if (--d.transformTimer <= 0) {
+                d.state = 2;
+                p.getAbilities().allowFlying = true;
+                p.getAbilities().setFlySpeed(0.1f);
+                p.sendAbilitiesUpdate();
+                HeavenKing.finishTransform(p, w);
+                sync(p, d);
+            }
+            return;
+        }
         int t = TRANSFORM_TICKS - d.transformTimer;
         double ang = t * 0.5;
         for (int i = 0; i < 3; i++) {

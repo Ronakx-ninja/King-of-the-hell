@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "S": {
+      "item": "minecraft:diamond"
+    },
+    "N": {
+      "item": "minecraft:nether_star"
+    },
+    "I": {
+      "item": "minecraft:packed_ice"
+    }
+  },
+  "pattern": [
+    "SSN",
+    " I ",
+    " I "
+  ],
+  "result": {
+    "id": "hellking:heaven_trident",
+    "count": 1
+  }
+}

@@ -16,3 +16,9 @@ Minecraft 1.21.1 + Fabric Loader 0.16+ + Fabric API (1.21.1) -> jar ko `mods` fo
 - Scythe haath mein pakdo, **V** dabao -> Hell King transformation (2 sec charge).
 - **Space double-tap** = superman flight, **G** (hold) = flame beam, **R** = fireball, **V** = wapas normal.
 - Keys Options > Controls > "Hell King Scythe" mein badal sakte ho.
+
+## Heaven King (v6)
+- Heaven Trident: recipe `SSN / _I_ / _I_` (S = Diamond, N = Nether Star, I = Packed Ice), also in Creative > Combat.
+- Trident haath mein pakdo + **V** = Heaven King (wings, halo, crown, cape). Scythe pakdo + V = Hell King.
+- **Space double-tap** = flight, **G** (hold) = neon water laser (blocks ice ban jaate hain), **R** = water ball (bada crater, paani se bhara, upar ice ki layer).
+- Hell King ab fire/lava/explosion/fall damage se immune hai aur screen par aag nahi dikhti.
