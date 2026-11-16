@@ -55,6 +55,7 @@ public class HellKingManager {
         int volley = 0;         // fireballs still to launch
         int volleyTimer = 0;
         int lastFlags = -1;
+        int extra = 0;          // assassin bits (draw, slash progress, throw progress ...)
         Vec3d lastFirePos = null;
     }
 
@@ -85,11 +86,12 @@ public class HellKingManager {
 
     public static void reset(ServerPlayerEntity p) {
         Data d = DATA.remove(p.getUuid());
+        Assassin.reset(p);
         if (d != null) restoreAbilities(p);
     }
 
     private static boolean hasWeapon(ServerPlayerEntity p, Data d) {
-        net.minecraft.item.Item it = d.form == 1 ? ModItems.HEAVEN_TRIDENT : ModItems.HELL_SCYTHE;
+        net.minecraft.item.Item it = d.form == 1 ? ModItems.HEAVEN_TRIDENT : (d.form == 2 ? ModItems.KATANA : ModItems.HELL_SCYTHE);
         for (ItemStack s : p.getInventory().main) if (s.isOf(it)) return true;
         for (ItemStack s : p.getInventory().offHand) if (s.isOf(it)) return true;
         return false;
@@ -103,13 +105,14 @@ public class HellKingManager {
                 if (d.state == 0) {
                     if (p.isHolding(ModItems.HELL_SCYTHE)) d.form = 0;
                     else if (p.isHolding(ModItems.HEAVEN_TRIDENT)) d.form = 1;
+                    else if (p.isHolding(ModItems.KATANA)) d.form = 2;
                     else {
-                        p.sendMessage(Text.literal("§cHell Scythe ya Heaven Trident haath mein pakdo, phir V dabao!"), true);
+                        p.sendMessage(Text.literal("§cScythe, Trident ya Katana haath mein pakdo, phir V dabao!"), true);
                         return;
                     }
                     d.state = 1;
                     d.transformTimer = TRANSFORM_TICKS;
-                    p.getWorld().playSound(null, p.getBlockPos(), ModSounds.TRANSFORM, SoundCategory.PLAYERS, 2.0f, d.form == 1 ? 1.6f : 1.0f);
+                    p.getWorld().playSound(null, p.getBlockPos(), ModSounds.TRANSFORM, SoundCategory.PLAYERS, 2.0f, d.form == 1 ? 1.6f : (d.form == 2 ? 0.5f : 1.0f));
                     sync(p, d);
                 } else if (d.state == 2) {
                     detransform(p, d);
@@ -131,10 +134,16 @@ public class HellKingManager {
                 }
                 sync(p, d);
             }
-            case 2 -> { if (d.state == 2) d.beam = true; }
+            case 2 -> {
+                if (d.state != 2) return;
+                if (d.form == 2) Assassin.onG(p);
+                else d.beam = true;
+            }
             case 3 -> d.beam = false;
             case 4 -> {
-                if (d.state != 2 || d.fireballCooldown > 0) return;
+                if (d.state != 2) return;
+                if (d.form == 2) { Assassin.onR(p); return; }
+                if (d.fireballCooldown > 0) return;
                 if (d.form == 1) {
                     d.fireballCooldown = 60;
                     d.castTicks = 14;
@@ -147,11 +156,13 @@ public class HellKingManager {
                 d.castTicks = 20;
                 p.getWorld().playSound(null, p.getBlockPos(), ModSounds.FIREBALL, SoundCategory.PLAYERS, 1.2f, 0.7f);
             }
+            case 5 -> { if (d.state == 2 && d.form == 2) Assassin.onB(p); }
             default -> {}
         }
     }
 
     private static void detransform(ServerPlayerEntity p, Data d) {
+        Assassin.reset(p);
         d.state = 0;
         d.flying = false;
         d.beam = false;
@@ -190,10 +201,11 @@ public class HellKingManager {
 
     // ------------------------------------------------------------ sync
     private static int flagsOf(Data d) {
-        return (d.flying ? 1 : 0) | (d.castTicks > 0 ? 2 : 0) | (d.beam && d.state == 2 ? 4 : 0) | (d.form == 1 ? 8 : 0);
+        return (d.flying ? 1 : 0) | (d.castTicks > 0 ? 2 : 0) | (d.beam && d.state == 2 ? 4 : 0) | (d.form << 3) | d.extra;
     }
 
     private static void sync(ServerPlayerEntity p, Data d) {
+        d.extra = (d.form == 2 && d.state == 2) ? Assassin.bits(p) : 0;
         d.lastFlags = flagsOf(d);
         SyncPayload payload = new SyncPayload(p.getId(), d.state, flagsOf(d));
         MinecraftServer server = p.getServer();
@@ -230,6 +242,8 @@ public class HellKingManager {
                 p.addStatusEffect(new StatusEffectInstance(StatusEffects.STRENGTH, 40, 1, true, false, false));
                 p.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 40, 1, true, false, false));
                 if (p.isOnFire()) p.extinguish();
+            } else if (d.form == 2) {
+                Assassin.tick(p, w);
             } else {
                 p.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 40, 1, true, false, false));
                 p.addStatusEffect(new StatusEffectInstance(StatusEffects.REGENERATION, 40, 1, true, false, false));
@@ -265,10 +279,12 @@ public class HellKingManager {
                 else walkingFire(p, d, w);
             }
 
+            d.extra = d.form == 2 ? Assassin.bits(p) : 0;
             if (flagsOf(d) != d.lastFlags || p.age % 20 == 0) sync(p, d);
         }
 
         HeavenKing.tickWaterBalls();
+        Assassin.tickProjectiles(server);
 
         // flame trail behind every hellfire ball
         for (int i = BALLS.size() - 1; i >= 0; i--) {
@@ -341,6 +357,18 @@ public class HellKingManager {
     }
 
     private static void tickTransforming(ServerPlayerEntity p, Data d, ServerWorld w) {
+        if (d.form == 2) {
+            Assassin.tickTransforming(p, TRANSFORM_TICKS - d.transformTimer, w);
+            if (--d.transformTimer <= 0) {
+                d.state = 2;
+                p.getAbilities().allowFlying = true;
+                p.getAbilities().setFlySpeed(0.1f);
+                p.sendAbilitiesUpdate();
+                Assassin.finishTransform(p, w);
+                sync(p, d);
+            }
+            return;
+        }
         if (d.form == 1) {
             HeavenKing.tickTransforming(p, TRANSFORM_TICKS - d.transformTimer, w);
             if (--d.transformTimer <= 0) {

@@ -33,6 +33,15 @@ public class ModItems {
                             .rarity(Rarity.EPIC)
                             .maxCount(1)));
 
+    public static final Item KATANA = Registry.register(Registries.ITEM,
+            Identifier.of(HellKingMod.MOD_ID, "katana"),
+            new SwordItem(ToolMaterials.NETHERITE,
+                    new Item.Settings()
+                            .attributeModifiers(SwordItem.createAttributeModifiers(ToolMaterials.NETHERITE, 6, -1.8f))
+                            .fireproof()
+                            .rarity(Rarity.EPIC)
+                            .maxCount(1)));
+
     /** Only used as the picture of the water ball projectile. */
     public static final Item WATER_BALL = Registry.register(Registries.ITEM,
             Identifier.of(HellKingMod.MOD_ID, "water_ball"), new Item(new Item.Settings()));
@@ -41,6 +50,7 @@ public class ModItems {
         ItemGroupEvents.modifyEntriesEvent(ItemGroups.COMBAT).register(entries -> {
             entries.add(HELL_SCYTHE);
             entries.add(HEAVEN_TRIDENT);
+            entries.add(KATANA);
         });
     }
 }

@@ -2,13 +2,16 @@
   "item.hellking.hell_scythe": "Hell King's Scythe",
   "key.categories.hellking": "Hell King Scythe",
   "key.hellking.transform": "Transform (hold Scythe or Trident)",
-  "key.hellking.beam": "Flame / Water Beam (hold)",
-  "key.hellking.fireball": "Fireball volley / Water Ball",
+  "key.hellking.beam": "Flame Beam / Water Beam / Katana Slash",
+  "key.hellking.fireball": "Fireballs / Water Ball / Throw Katanas",
   "subtitles.hellking.transform": "Hell King awakens",
   "subtitles.hellking.fireball": "Hellfire whooshes",
   "subtitles.hellking.beam": "Flame beam roars",
   "subtitles.hellking.fly": "Dark wings beat",
   "item.hellking.hell_fireball": "Hellfire Ball",
   "item.hellking.heaven_trident": "Heaven King's Trident",
-  "item.hellking.water_ball": "Water Ball"
+  "item.hellking.water_ball": "Water Ball",
+  "item.hellking.katana": "Void Katana",
+  "key.hellking.draw": "Draw / Sheathe Katanas",
+  "subtitles.hellking.slash": "Blade slashes"
 }

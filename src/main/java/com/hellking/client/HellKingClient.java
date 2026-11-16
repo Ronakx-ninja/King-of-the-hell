@@ -24,7 +24,7 @@ import java.util.Map;
 
 public class HellKingClient implements ClientModInitializer {
     private static final String CAT = "key.categories.hellking";
-    private static KeyBinding KEY_TRANSFORM, KEY_BEAM, KEY_FIREBALL;
+    private static KeyBinding KEY_TRANSFORM, KEY_BEAM, KEY_FIREBALL, KEY_DRAW;
     private static boolean beamHeld = false;
 
     /** entityId -> {state, flying, lastUpdateTick} */
@@ -43,9 +43,9 @@ public class HellKingClient implements ClientModInitializer {
         return s == null ? 0 : s[1];
     }
 
-    /** 0 = Hell King, 1 = Heaven King */
+    /** 0 = Hell King, 1 = Heaven King, 2 = Wind Assassin */
     public static int formOf(Entity e) {
-        return (flagsOf(e) & 8) != 0 ? 1 : 0;
+        return (flagsOf(e) >> 3) & 3;
     }
 
     public static boolean isKing(Entity e) {
@@ -68,11 +68,20 @@ public class HellKingClient implements ClientModInitializer {
         return (flagsOf(e) & 4) != 0;
     }
 
+    /** Wind Assassin extras: bit5 drawn, bits8-11 slash progress, bit12 slash type, bits13-17 throw progress, bit18 katanas away, bit19 combo parity. */
+    public static boolean isDrawn(Entity e) { return (flagsOf(e) & 32) != 0; }
+    public static int slashProgress(Entity e) { return (flagsOf(e) >> 8) & 15; }
+    public static int slashType(Entity e) { return (flagsOf(e) >> 12) & 1; }
+    public static int throwProgress(Entity e) { return (flagsOf(e) >> 13) & 31; }
+    public static boolean katanasAway(Entity e) { return (flagsOf(e) & (1 << 18)) != 0; }
+    public static int comboParity(Entity e) { return (flagsOf(e) >> 19) & 1; }
+
     @Override
     public void onInitializeClient() {
         KEY_TRANSFORM = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.hellking.transform", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, CAT));
         KEY_BEAM = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.hellking.beam", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, CAT));
         KEY_FIREBALL = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.hellking.fireball", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_R, CAT));
+        KEY_DRAW = KeyBindingHelper.registerKeyBinding(new KeyBinding("key.hellking.draw", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_B, CAT));
 
         EntityModelLayerRegistry.registerModelLayer(HellKingFeatureRenderer.ARMOR_LAYER, HellKingFeatureRenderer::createArmorLayer);
         EntityModelLayerRegistry.registerModelLayer(HellKingFeatureRenderer.GEAR_LAYER, HellKingFeatureRenderer::createGearLayer);
@@ -80,10 +89,13 @@ public class HellKingClient implements ClientModInitializer {
         EntityModelLayerRegistry.registerModelLayer(HeavenKingFeatureRenderer.ARMOR_LAYER, HeavenKingFeatureRenderer::createArmorLayer);
         EntityModelLayerRegistry.registerModelLayer(HeavenKingFeatureRenderer.GEAR_LAYER, HeavenKingFeatureRenderer::createGearLayer);
 
+        EntityModelLayerRegistry.registerModelLayer(AssassinFeatureRenderer.GEAR_LAYER, AssassinFeatureRenderer::createGearLayer);
+
         LivingEntityFeatureRendererRegistrationCallback.EVENT.register((type, renderer, helper, ctx) -> {
             if (renderer instanceof PlayerEntityRenderer pr) {
                 helper.register(new HellKingFeatureRenderer(pr, ctx.getModelLoader()));
                 helper.register(new HeavenKingFeatureRenderer(pr, ctx.getModelLoader()));
+                helper.register(new AssassinFeatureRenderer(pr, ctx.getModelLoader()));
             }
         });
 
@@ -107,6 +119,7 @@ public class HellKingClient implements ClientModInitializer {
 
         while (KEY_TRANSFORM.wasPressed()) send(0);
         while (KEY_FIREBALL.wasPressed()) send(4);
+        while (KEY_DRAW.wasPressed()) send(5);
         boolean g = KEY_BEAM.isPressed() && mc.currentScreen == null;
         if (g != beamHeld) {
             beamHeld = g;

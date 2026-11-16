@@ -10,6 +10,7 @@ public class ModSounds {
     public static final SoundEvent FIREBALL = reg("fireball");
     public static final SoundEvent BEAM = reg("beam");
     public static final SoundEvent FLY = reg("fly");
+    public static final SoundEvent SLASH = reg("slash");
 
     private static SoundEvent reg(String name) {
         Identifier id = Identifier.of(HellKingMod.MOD_ID, name);

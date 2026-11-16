@@ -135,8 +135,7 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
             return;
         }
 
-        armorModel.render(m, vcp.getBuffer(RenderLayer.getArmorCutoutNoCull(ARMOR_TEX)), light, ov, -1);
-        armorModel.render(m, vcp.getBuffer(RenderLayer.getEyes(ARMOR_GLOW)), full, ov, -1);
+        // the Hell King skin (hell_skin.png) replaces the player's skin, so no armour overlay is drawn here
 
         // ---- animate cape
         float t = p.age + tickDelta;
@@ -147,8 +146,6 @@ public class HellKingFeatureRenderer extends FeatureRenderer<AbstractClientPlaye
         capeLow.pitch = lean * 0.5f + (float) Math.sin(t * 0.14f + 1.0f) * 0.07f + (float) Math.sin(t * 0.33f) * 0.025f;
 
         drawPart(m, ctx.head, horns, vcp, light, full, ov);
-        drawPart(m, ctx.rightArm, shoulderR, vcp, light, full, ov);
-        drawPart(m, ctx.leftArm, shoulderL, vcp, light, full, ov);
         drawPart(m, ctx.body, cape, vcp, light, full, ov);
     }
 

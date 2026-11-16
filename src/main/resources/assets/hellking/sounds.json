@@ -1,6 +1,32 @@
 {
-  "transform": { "subtitle": "subtitles.hellking.transform", "sounds": ["hellking:transform"] },
-  "fireball":  { "subtitle": "subtitles.hellking.fireball",  "sounds": ["hellking:fireball"] },
-  "beam":      { "subtitle": "subtitles.hellking.beam",      "sounds": ["hellking:beam"] },
-  "fly":       { "subtitle": "subtitles.hellking.fly",       "sounds": ["hellking:fly"] }
+  "transform": {
+    "subtitle": "subtitles.hellking.transform",
+    "sounds": [
+      "hellking:transform"
+    ]
+  },
+  "fireball": {
+    "subtitle": "subtitles.hellking.fireball",
+    "sounds": [
+      "hellking:fireball"
+    ]
+  },
+  "beam": {
+    "subtitle": "subtitles.hellking.beam",
+    "sounds": [
+      "hellking:beam"
+    ]
+  },
+  "fly": {
+    "subtitle": "subtitles.hellking.fly",
+    "sounds": [
+      "hellking:fly"
+    ]
+  },
+  "slash": {
+    "subtitle": "subtitles.hellking.slash",
+    "sounds": [
+      "hellking:slash"
+    ]
+  }
 }
